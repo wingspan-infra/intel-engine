@@ -1,6 +1,4 @@
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X7X21RDFR0)
-
 # 🛰️ EVE Online Intel Engine: Wingspan Edition (2026)
 
 A high-performance, containerized intelligence engine built in Node.js that bridges **Tripwire mapper data** with **zKillboard's RedisQ**. This service dynamically monitors active wormhole chains and delivers real-time, filtered kill alerts to Discord.
