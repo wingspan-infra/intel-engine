@@ -13,7 +13,7 @@ const isWormholeSystem = (systemId) => {
 };
 
 ;(async () => {
-    console.log("🚀 Initializing Tripwire Kill Monitor...");
+    console.log("Initializing Tripwire Kill Monitor...");
     await esi.loadSystemCache('./data/systems.json');
     await esi.loadCache(path.join(__dirname, 'data', 'esi_cache.json'));
 
@@ -26,7 +26,7 @@ const isWormholeSystem = (systemId) => {
     }, 1 * 60 * 1000);
 
     // 4. Start the Engine
-    axios.post(process.env.INTEL_WEBHOOK_URL, { content: "Intel Bot Online and Filtering Chain!" })
+    axios.post(process.env.INTEL_WEBHOOK_URL, { content: "Online" })
         .catch(err => console.error("Test Ping Failed:", err.message));
 
     listeningStream();
@@ -34,7 +34,7 @@ const isWormholeSystem = (systemId) => {
 
 
 
-const QUEUE_ID = process.env.ZKILL_QUEUE_ID || 'Wingspan-WH-Monitor';
+const QUEUE_ID = process.env.ZKILL_QUEUE_ID || 'Wingspan-TW-Monitor';
 const REDISQ_URL = `https://zkillredisq.stream/listen.php?queueID=${QUEUE_ID}`;
 
 
@@ -57,11 +57,11 @@ async function listeningStream() {
                 
                 scanCount++;
 
-                if (isWormholeSystem(killmail.solar_system_id) && mapper.isInChain(killmail.solar_system_id)) {
+                if (isWormholeSystem(killmail.solar_system_id) && mapper.isSystemRelevant(killmail.solar_system_id)) {
                     console.log(`🎯 TARGET MATCH: Kill ${data.package.killID} in system ${killmail.solar_system_id}`);
                     await handlePrivateIntel(killmail, zkb);
                 } else {
-                    if (scanCount % 100 === 0) {
+                    if (scanCount % 500 === 0) {
                         console.log(`🛡️  Gatekeeper: ${scanCount} total kills scanned. Discarding kill in system ${killmail.solar_system_id}...`);
                     }
                 }
@@ -77,26 +77,26 @@ async function listeningStream() {
 }
 
 
-// Construct the Tripwire URL using the system name
-// Note: You may need to encode the name if it has spaces (e.g., Thera)
-//const tripwireUrl = `https://tw.torpedodelivery.com/?system=${encodeURIComponent(names.systemName)}`;
-
-// Pass this to your EmbedFactory
-
 async function handlePrivateIntel(kill, zkb) {
-    if (!mapper.isInChain(kill.solar_system_id)) {
+    if (!mapper.isSystemRelevant(kill.solar_system_id)) {
         return; 
     }
 
     try {
+
+        const metadata = mapper.getSystemMetadata(kill.solar_system_id);
         const names = {
             shipName: await esi.getTypeName(kill.victim?.ship_type_id),
             corpName: await esi.getCorporationName(kill.victim?.corporation_id),
             charName: await esi.getCharacterName(kill.victim?.character_id),
-            systemName: esi.getSystemDetails(kill.solar_system_id)?.name || "Unknown System"
+            systemName: esi.getSystemDetails(kill.solar_system_id)?.name || "Unknown System",
+            scoutName: metadata ? metadata.scannedBy : "Unknown Scout", // Added this
+            isAdjacent: metadata ? metadata.isAdjacent : false
         };
 
-        const payload = EmbedFactory.createKillEmbed(kill, zkb, names);
+        const tripwireUrl = `https://tw.torpedodelivery.com/?system=${encodeURIComponent(names.systemName)}`;
+
+        const payload = EmbedFactory.createKillEmbed(kill, zkb, names, tripwireUrl);
         const totalValue = (zkb.totalValue / 1000000).toFixed(2);
         const targetWebhook = process.env.INTEL_WEBHOOK_URL;
 
